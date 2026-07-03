@@ -7,6 +7,7 @@ import uuid
 import csv
 import io
 import sqlite3
+import tempfile
 from datetime import datetime, timedelta
 import hashlib
 import qrcode
@@ -35,8 +36,17 @@ os.makedirs("certificates", exist_ok=True)
 os.makedirs("static", exist_ok=True)
 os.makedirs("uploads", exist_ok=True)
 
-# Database setup
-DB_PATH = "certificates.db"
+# Database setup - Fix for Vercel (use /tmp for writable directory)
+def get_db_path():
+    """Get writable database path for Vercel or local"""
+    if os.getenv("VERCEL") or os.getenv("RENDER"):
+        # Use /tmp for Vercel/Render (writable)
+        return os.path.join(tempfile.gettempdir(), "certificates.db")
+    else:
+        # Local development
+        return "certificates.db"
+
+DB_PATH = get_db_path()
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -103,7 +113,11 @@ def generate_certificate_code():
     return f"CERT-{uuid.uuid4().hex[:8].upper()}"
 
 def generate_pdf_certificate(data, code, template_style='classic', page_size='A4'):
-    filename = f"certificates/cert_{code}.pdf"
+    # Use /tmp for Vercel
+    cert_dir = "/tmp/certificates" if os.getenv("VERCEL") else "certificates"
+    os.makedirs(cert_dir, exist_ok=True)
+    
+    filename = f"{cert_dir}/cert_{code}.pdf"
     
     # Page sizes
     if page_size == 'landscape':
@@ -117,7 +131,7 @@ def generate_pdf_certificate(data, code, template_style='classic', page_size='A4
     else:
         pagesize = A4
     
-    qr_path = f"certificates/qr_{code}.png"
+    qr_path = f"{cert_dir}/qr_{code}.png"
     
     doc = SimpleDocTemplate(filename, pagesize=pagesize, 
                            leftMargin=0.5*inch, rightMargin=0.5*inch,
@@ -276,7 +290,7 @@ def generate_pdf_certificate(data, code, template_style='classic', page_size='A4
     # Build Content
     content = []
     
-    # Decorative Border (for premium, gold, and elegant templates)
+    # Decorative Border
     if template_style in ['premium', 'gold', 'elegant']:
         content.append(Spacer(1, 0.2*inch))
         content.append(Paragraph("=" * 80, body_style))
@@ -330,11 +344,14 @@ def generate_pdf_certificate(data, code, template_style='classic', page_size='A4
     return filename
 
 def generate_qr_code(code):
+    cert_dir = "/tmp/certificates" if os.getenv("VERCEL") else "certificates"
+    os.makedirs(cert_dir, exist_ok=True)
+    
     qr = qrcode.QRCode(version=1, box_size=10, border=4)
-    qr.add_data(f"http://127.0.0.1:8080/verify?code={code}")
+    qr.add_data(f"https://{os.getenv('VERCEL_URL', '127.0.0.1:8080')}/verify?code={code}")
     qr.make(fit=True)
     img = qr.make_image(fill_color="black", back_color="white")
-    filename = f"certificates/qr_{code}.png"
+    filename = f"{cert_dir}/qr_{code}.png"
     img.save(filename)
     return filename
 
@@ -345,7 +362,8 @@ def send_certificate_email(recipient_email, student_name, certificate_code, pdf_
         msg['To'] = recipient_email
         msg['Subject'] = f"🎓 Your Certificate - {certificate_code}"
         
-        verification_url = f"http://127.0.0.1:8080/verify?code={certificate_code}"
+        base_url = f"https://{os.getenv('VERCEL_URL', '127.0.0.1:8080')}"
+        verification_url = f"{base_url}/verify?code={certificate_code}"
         
         body = f"""
 Dear {student_name},
@@ -400,7 +418,8 @@ create_demo_user()
 # FastAPI app
 app = FastAPI()
 
-app.mount("/certificates", StaticFiles(directory="certificates"), name="certificates")
+# Mount static files
+app.mount("/certificates", StaticFiles(directory="/tmp/certificates" if os.getenv("VERCEL") else "certificates"), name="certificates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 def read_html(filename):
@@ -530,6 +549,8 @@ async def generate_certificate(
         with open(pdf_path, "rb") as f:
             pdf_data = base64.b64encode(f.read()).decode()
         
+        base_url = f"https://{os.getenv('VERCEL_URL', '127.0.0.1:8080')}"
+        
         return {
             "success": True,
             "certificate_code": code,
@@ -545,7 +566,7 @@ async def generate_certificate(
             "template_style": template_style,
             "page_size": page_size,
             "email_sent": email_sent,
-            "verification_url": f"http://127.0.0.1:8080/verify?code={code}"
+            "verification_url": f"{base_url}/verify?code={code}"
         }
     except Exception as e:
         return JSONResponse({"success": False, "message": str(e)}, status_code=500)
@@ -711,4 +732,4 @@ async def view_certificate(code: str):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8080)
+    uvicorn.run(app, host="0.0.0.0", port=8000)

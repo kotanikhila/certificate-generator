@@ -3,11 +3,10 @@
   "builds": [
     {
       "src": "app/main.py",
-      "use": "@vercel/python"
-    },
-    {
-      "src": "templates/*",
-      "use": "@vercel/static"
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaSize": "15mb"
+      }
     }
   ],
   "routes": [
@@ -24,7 +23,10 @@
       "dest": "app/main.py"
     }
   ],
-  "env": {
-    "DATABASE_URL": "sqlite:///./certificates.db"
+  "functions": {
+    "app/main.py": {
+      "runtime": "python3.11",
+      "maxDuration": 30
+    }
   }
 }
