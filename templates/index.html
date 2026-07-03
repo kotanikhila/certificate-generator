@@ -1,0 +1,347 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>Certificate Generator</title>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:Arial;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;display:flex;justify-content:center;align-items:center;padding:20px}
+        .container{background:white;border-radius:20px;padding:40px;max-width:750px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.3)}
+        .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px}
+        .header h1{color:#333;font-size:28px}
+        .header .auth-buttons{display:flex;gap:10px}
+        .header .auth-buttons a{padding:8px 18px;border-radius:8px;text-decoration:none;font-weight:600}
+        .auth-buttons .login{background:#667eea;color:white}
+        .auth-buttons .signup{background:#eee;color:#333}
+        .auth-buttons .login:hover{background:#5a6fd6}
+        .auth-buttons .signup:hover{background:#ddd}
+        .mode-toggle{display:flex;gap:10px;margin-bottom:20px}
+        .mode-btn{flex:1;padding:10px;border:2px solid #e0e0e0;background:white;border-radius:10px;cursor:pointer;font-weight:600;transition:all 0.3s}
+        .mode-btn.active{border-color:#667eea;background:#667eea;color:white}
+        .mode-btn:hover{border-color:#667eea}
+        .tab-content{display:none}
+        .tab-content.active{display:block}
+        .form-group{margin-bottom:15px}
+        label{display:block;margin-bottom:5px;color:#555;font-weight:600;font-size:14px}
+        input,select{width:100%;padding:12px 15px;border:2px solid #e0e0e0;border-radius:10px;font-size:16px;box-sizing:border-box}
+        input:focus,select:focus{outline:none;border-color:#667eea}
+        .row{display:flex;gap:15px}
+        .row .form-group{flex:1}
+        .checkbox-group{display:flex;align-items:center;gap:10px;margin:10px 0}
+        .checkbox-group input{width:20px;height:20px;cursor:pointer}
+        .checkbox-group label{cursor:pointer;margin:0}
+        .btn{width:100%;padding:14px;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;border:none;border-radius:10px;font-size:18px;font-weight:600;cursor:pointer}
+        .btn:hover{transform:translateY(-2px);box-shadow:0 10px 20px rgba(102,126,234,0.4)}
+        .btn-verify{background:linear-gradient(135deg,#f093fb 0%,#f5576c 100%)}
+        .message{margin-top:20px;padding:15px;border-radius:10px;display:none}
+        .message.success{display:block;background:#d4edda;color:#155724;border:1px solid #c3e6cb}
+        .message.error{display:block;background:#f8d7da;color:#721c24;border:1px solid #f5c6cb}
+        .result{margin-top:20px;padding:20px;background:#f8f9fa;border-radius:10px;display:none;max-height:800px;overflow-y:auto}
+        .result.show{display:block}
+        .result-item{margin:5px 0;padding:8px;background:white;border-radius:5px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap}
+        .result-item strong{color:#667eea}
+        .download-link{display:inline-block;margin-top:10px;padding:10px 20px;background:#28a745;color:white;text-decoration:none;border-radius:8px}
+        .download-link:hover{background:#218838}
+        .view-link{display:inline-block;margin-top:10px;padding:10px 20px;background:#17a2b8;color:white;text-decoration:none;border-radius:8px}
+        .view-link:hover{background:#138496}
+        .loading{display:none;text-align:center;margin-top:20px}
+        .loading.show{display:block}
+        .spinner{border:4px solid #f3f3f3;border-top:4px solid #667eea;border-radius:50%;width:40px;height:40px;animation:spin 1s linear infinite;margin:0 auto}
+        @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+        .bulk-link{display:block;text-align:center;margin-top:15px;color:#667eea;text-decoration:none}
+        .bulk-link:hover{text-decoration:underline}
+        .qr-preview{max-width:150px;max-height:150px;margin-top:5px;border:1px solid #ddd;border-radius:8px;padding:5px}
+        .pdf-preview{width:100%;height:500px;border:1px solid #ddd;border-radius:8px;margin-top:10px}
+        .email-badge{display:inline-block;padding:3px 12px;border-radius:12px;font-size:12px;font-weight:600}
+        .email-sent{background:#d4edda;color:#155724}
+        .email-failed{background:#f8d7da;color:#721c24}
+        .verification-link{color:#667eea;text-decoration:none;word-break:break-all}
+        .verification-link:hover{text-decoration:underline}
+        .verify-result-box{background:white;padding:20px;border-radius:10px;margin-top:15px;border-left:4px solid #28a745}
+        .verify-result-box.valid{border-left-color:#28a745}
+        .verify-result-box.invalid{border-left-color:#dc3545}
+        .btn-group{display:flex;gap:10px;flex-wrap:wrap;margin-top:15px}
+        @media(max-width:600px){.row{flex-direction:column}.header{flex-direction:column;text-align:center}}
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>📜 Certificate Generator</h1>
+        <div class="auth-buttons">
+            <a href="/login" class="login">Login</a>
+            <a href="/signup" class="signup">Sign Up</a>
+        </div>
+    </div>
+    
+    <div class="mode-toggle">
+        <button class="mode-btn active" onclick="switchTab('generate')">Generate</button>
+        <button class="mode-btn" onclick="switchTab('verify')">Verify</button>
+    </div>
+    
+    <div id="tab-generate" class="tab-content active">
+        <form id="certForm" onsubmit="generateCertificate(event)">
+            <div class="form-group">
+                <label>Student Name *</label>
+                <input type="text" id="studentName" placeholder="Enter student's full name" required>
+            </div>
+            <div class="form-group">
+                <label>Student Email *</label>
+                <input type="email" id="studentEmail" placeholder="Enter student's email" required>
+            </div>
+            <div class="form-group">
+                <label>Achievement *</label>
+                <input type="text" id="achievement" placeholder="e.g., Best Performance, Completion" required>
+            </div>
+            <div class="form-group">
+                <label>Organization Name *</label>
+                <input type="text" id="organizationName" placeholder="Enter organization name" required>
+            </div>
+            <div class="form-group">
+                <label>Event Name *</label>
+                <input type="text" id="eventName" placeholder="Enter event name" required>
+            </div>
+            
+            <div class="row">
+                <div class="form-group">
+                    <label>Template Style</label>
+                    <select id="templateStyle">
+                        <option value="classic">🎨 Classic</option>
+                        <option value="modern">✨ Modern</option>
+                        <option value="elegant">🌹 Elegant</option>
+                        <option value="premium">💎 Premium</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Page Size</label>
+                    <select id="pageSize">
+                        <option value="A4">A4</option>
+                        <option value="A3">A3</option>
+                        <option value="A5">A5</option>
+                        <option value="landscape">Landscape</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="checkbox-group">
+                <input type="checkbox" id="sendEmail" checked>
+                <label for="sendEmail">📧 Send certificate to student's email</label>
+            </div>
+            
+            <button type="submit" class="btn">Generate Certificate</button>
+        </form>
+        <a href="/bulk-upload" class="bulk-link">📤 Bulk Upload Multiple Certificates</a>
+    </div>
+    
+    <div id="tab-verify" class="tab-content">
+        <form id="verifyForm" onsubmit="verifyCertificate(event)">
+            <div class="form-group">
+                <label>Certificate Code *</label>
+                <input type="text" id="verifyCode" placeholder="Enter certificate code (e.g., CERT-XXXXXXXX)" required>
+            </div>
+            <button type="submit" class="btn btn-verify">Verify Certificate</button>
+        </form>
+        <div id="verifyResult" class="verify-result-box" style="display:none;"></div>
+    </div>
+    
+    <div id="loading" class="loading">
+        <div class="spinner"></div>
+        <p style="margin-top:10px;color:#666;">Generating your certificate...</p>
+    </div>
+    
+    <div id="message" class="message"></div>
+    <div id="result" class="result">
+        <h3 style="text-align:center;color:#333;margin-bottom:15px;">✅ Certificate Generated!</h3>
+        <div id="resultContent"></div>
+    </div>
+</div>
+
+<script>
+const token = localStorage.getItem('token');
+const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+function switchTab(tab) {
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    if (tab === 'generate') {
+        document.querySelectorAll('.mode-btn')[0].classList.add('active');
+        document.getElementById('tab-generate').classList.add('active');
+    } else {
+        document.querySelectorAll('.mode-btn')[1].classList.add('active');
+        document.getElementById('tab-verify').classList.add('active');
+        document.getElementById('verifyResult').style.display = 'none';
+    }
+    document.getElementById('message').className = 'message';
+    document.getElementById('result').className = 'result';
+}
+
+async function generateCertificate(event) {
+    event.preventDefault();
+    const loading = document.getElementById('loading');
+    const message = document.getElementById('message');
+    const result = document.getElementById('result');
+    
+    loading.classList.add('show');
+    message.className = 'message';
+    result.className = 'result';
+    
+    if (!token) {
+        loading.classList.remove('show');
+        message.className = 'message error';
+        message.textContent = '❌ Please login first. Click "Login" button above.';
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('student_name', document.getElementById('studentName').value);
+    formData.append('student_email', document.getElementById('studentEmail').value);
+    formData.append('achievement', document.getElementById('achievement').value);
+    formData.append('organization_name', document.getElementById('organizationName').value);
+    formData.append('event_name', document.getElementById('eventName').value);
+    formData.append('template_style', document.getElementById('templateStyle').value);
+    formData.append('page_size', document.getElementById('pageSize').value);
+    formData.append('send_email', document.getElementById('sendEmail').checked ? 'true' : 'false');
+    formData.append('token', token);
+    
+    try {
+        const response = await fetch('/api/generate-certificate', {
+            method: 'POST',
+            body: formData
+        });
+        
+        loading.classList.remove('show');
+        const data = await response.json();
+        
+        if (data.success) {
+            message.className = 'message success';
+            let emailStatus = data.email_sent ? '✅ Email sent to student' : '❌ Email sending failed';
+            message.textContent = '✅ Certificate generated successfully! ' + emailStatus;
+            
+            result.className = 'result show';
+            
+            const templateLabels = {
+                'classic': '🎨 Classic',
+                'modern': '✨ Modern',
+                'elegant': '🌹 Elegant',
+                'premium': '💎 Premium'
+            };
+            
+            document.getElementById('resultContent').innerHTML = `
+                <div class="result-item"><strong>Certificate Code:</strong> ${data.certificate_code}</div>
+                <div class="result-item"><strong>Student:</strong> ${data.student_name}</div>
+                <div class="result-item"><strong>Email:</strong> ${data.student_email}</div>
+                <div class="result-item"><strong>Achievement:</strong> ${data.achievement}</div>
+                <div class="result-item"><strong>Organization:</strong> ${data.organization_name}</div>
+                <div class="result-item"><strong>Event:</strong> ${data.event_name}</div>
+                <div class="result-item"><strong>Template:</strong> ${templateLabels[data.template_style] || data.template_style}</div>
+                <div class="result-item"><strong>Size:</strong> ${data.page_size}</div>
+                <div class="result-item"><strong>Issued:</strong> ${new Date(data.issued_date).toLocaleDateString()}</div>
+                <div class="result-item">
+                    <strong>Email Status:</strong>
+                    <span class="email-badge ${data.email_sent ? 'email-sent' : 'email-failed'}">
+                        ${data.email_sent ? '✅ Sent' : '❌ Failed'}
+                    </span>
+                </div>
+                
+                <div style="margin-top:15px;text-align:center;">
+                    <strong>QR Code (Scan to Verify):</strong><br>
+                    <img src="${data.qr_code}" class="qr-preview" alt="QR Code">
+                    <div style="margin-top:5px;font-size:12px;color:#666;word-break:break-all;">
+                        <a href="${data.verification_url}" target="_blank" class="verification-link">${data.verification_url}</a>
+                    </div>
+                </div>
+                
+                <div style="margin-top:15px;">
+                    <strong>Certificate Preview:</strong>
+                    <iframe src="${data.pdf_preview}" class="pdf-preview"></iframe>
+                </div>
+                
+               <div class="btn-group">
+    <a href="/download/${data.certificate_code}" class="download-link" target="_blank">📥 Download PDF</a>
+    <a href="/view-certificate/${data.certificate_code}" class="view-link" target="_blank">👁️ View PDF</a>
+    <a href="/dashboard" style="display:inline-block;padding:10px 20px;background:#667eea;color:white;text-decoration:none;border-radius:8px;">📊 Dashboard</a>
+    <a href="/verify?code=${data.certificate_code}" style="display:inline-block;padding:10px 20px;background:#f093fb;color:white;text-decoration:none;border-radius:8px;" target="_blank">🔍 Verify Online</a>
+</div>
+            `;
+            document.getElementById('certForm').reset();
+            document.getElementById('sendEmail').checked = true;
+        } else {
+            message.className = 'message error';
+            message.textContent = '❌ ' + (data.message || 'Failed to generate certificate');
+        }
+    } catch (error) {
+        loading.classList.remove('show');
+        message.className = 'message error';
+        message.textContent = '❌ ' + error.message;
+    }
+}
+
+async function verifyCertificate(event) {
+    event.preventDefault();
+    const loading = document.getElementById('loading');
+    const message = document.getElementById('message');
+    const verifyResult = document.getElementById('verifyResult');
+    
+    loading.classList.add('show');
+    message.className = 'message';
+    verifyResult.style.display = 'none';
+    
+    const code = document.getElementById('verifyCode').value.trim();
+    
+    try {
+        const response = await fetch('/verify?code=' + encodeURIComponent(code));
+        loading.classList.remove('show');
+        const data = await response.json();
+        
+        verifyResult.style.display = 'block';
+        
+        if (data.valid) {
+            verifyResult.className = 'verify-result-box valid';
+            verifyResult.innerHTML = `
+                <h3 style="color:#28a745;">✅ Certificate is VALID!</h3>
+                <hr>
+                <div style="margin-top:10px;">
+                    <p><strong>📋 Certificate Details:</strong></p>
+                    <p><strong>Student:</strong> ${data.student_name}</p>
+                    <p><strong>Achievement:</strong> ${data.achievement}</p>
+                    <p><strong>Organization:</strong> ${data.organization_name}</p>
+                    <p><strong>Event:</strong> ${data.event_name}</p>
+                    <p><strong>Certificate Code:</strong> ${data.certificate_code}</p>
+                    <p><strong>Template:</strong> ${data.template_style || 'Classic'}</p>
+                    <p><strong>Size:</strong> ${data.page_size || 'A4'}</p>
+                    <p><strong>Issued:</strong> ${new Date(data.issued_date).toLocaleDateString()}</p>
+                    <div style="margin-top:15px;">
+                        <a href="/download/${code}" class="download-link" target="_blank">📥 Download Certificate</a>
+                        <a href="/view-certificate/${code}" class="view-link" target="_blank" style="margin-left:10px;">👁️ View PDF</a>
+                    </div>
+                </div>
+            `;
+            message.className = 'message success';
+            message.textContent = '✅ Certificate is valid!';
+        } else {
+            verifyResult.className = 'verify-result-box invalid';
+            verifyResult.innerHTML = `
+                <h3 style="color:#dc3545;">❌ Certificate is INVALID</h3>
+                <p style="margin-top:10px;">${data.message || 'Certificate not found'}</p>
+                <p style="margin-top:10px;color:#666;font-size:14px;">Please check the certificate code and try again.</p>
+            `;
+            message.className = 'message error';
+            message.textContent = '❌ ' + (data.message || 'Invalid certificate code');
+        }
+    } catch (error) {
+        loading.classList.remove('show');
+        verifyResult.style.display = 'block';
+        verifyResult.className = 'verify-result-box invalid';
+        verifyResult.innerHTML = `<h3 style="color:#dc3545;">❌ Error</h3><p>${error.message}</p>`;
+        message.className = 'message error';
+        message.textContent = '❌ Error verifying certificate';
+    }
+}
+
+if (!token) {
+    const msg = document.getElementById('message');
+    msg.className = 'message error';
+    msg.textContent = '🔐 Please Login or Sign Up to generate certificates';
+}
+</script>
+</body>
+</html>

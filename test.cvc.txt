@@ -1,0 +1,6 @@
+student_name,student_email,achievement,organization_name,event_name
+John Doe,john@example.com,Best Performance,Tech Corp,Tech Summit 2026
+Jane Smith,jane@example.com,Excellence Award,Data Inc,Data Conference
+Mike Johnson,mike@example.com,Innovation Award,AI Labs,AI Conference 2026
+Sarah Wilson,sarah@example.com,Leadership Award,Business School,Leadership Summit
+David Brown,david@example.com,Coding Excellence,Code Academy,Hackathon 2026

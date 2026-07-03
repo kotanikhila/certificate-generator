@@ -1,0 +1,32 @@
+﻿<!DOCTYPE html>
+<html>
+<head><title>Certificate Generator</title></head>
+<body style="font-family:Arial;text-align:center;padding:50px;background:#667eea;">
+<div style="background:white;padding:40px;border-radius:20px;max-width:500px;margin:auto;">
+<h2>📜 Certificate Generator</h2>
+<form id="f">
+<input type="text" id="n" placeholder="Name" style="width:100%;padding:10px;margin:10px 0;border:2px solid #ddd;border-radius:8px;"><br>
+<input type="email" id="e" placeholder="Email" style="width:100%;padding:10px;margin:10px 0;border:2px solid #ddd;border-radius:8px;"><br>
+<input type="text" id="a" placeholder="Achievement" style="width:100%;padding:10px;margin:10px 0;border:2px solid #ddd;border-radius:8px;"><br>
+<input type="text" id="o" placeholder="Organization" style="width:100%;padding:10px;margin:10px 0;border:2px solid #ddd;border-radius:8px;"><br>
+<input type="text" id="ev" placeholder="Event" style="width:100%;padding:10px;margin:10px 0;border:2px solid #ddd;border-radius:8px;"><br>
+<button type="submit" style="width:100%;padding:12px;background:#667eea;color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer;">Generate</button>
+</form>
+<div id="r" style="margin-top:20px;padding:15px;background:#f0f0f0;border-radius:8px;display:none;"></div>
+</div>
+<script>
+document.getElementById('f').onsubmit=async function(e){
+e.preventDefault();
+try{
+await fetch('/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Admin',email:'admin@example.com',password:'admin123'})});
+const l=await fetch('/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'username=admin@example.com&password=admin123'});
+const t=await l.json();
+const resp=await fetch('/generate-certificate',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+t.access_token},body:JSON.stringify({student_name:document.getElementById('n').value,student_email:document.getElementById('e').value,achievement:document.getElementById('a').value,organization_name:document.getElementById('o').value,event_name:document.getElementById('ev').value})});
+const d=await resp.json();
+document.getElementById('r').style.display='block';
+document.getElementById('r').innerHTML='<p>✅ Certificate Generated!</p><p>Code: '+d.certificate_code+'</p><a href="/download/'+d.certificate_code+'" target="_blank">📥 Download PDF</a>';
+}catch(err){alert('Error: '+err.message)}
+}
+</script>
+</body>
+</html>

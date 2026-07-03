@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head><title>Download Test</title></head>
+<body>
+<h1>Download Test</h1>
+<p>Enter certificate code to download:</p>
+<form onsubmit="downloadCert(event)">
+    <input type="text" id="code" placeholder="CERT-XXXXXXXX">
+    <button type="submit">Download</button>
+</form>
+<div id="result"></div>
+<script>
+function downloadCert(e) {
+    e.preventDefault();
+    const code = document.getElementById('code').value;
+    if (code) {
+        window.location.href = '/download/' + code;
+    }
+}
+</script>
+</body>
+</html>

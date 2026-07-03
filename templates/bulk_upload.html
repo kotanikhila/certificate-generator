@@ -1,0 +1,250 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>Bulk Upload - Certificate Generator</title>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:Arial;background:#f5f5f5;min-height:100vh;padding:20px}
+        .container{max-width:800px;margin:0 auto}
+        .header{background:white;padding:20px;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.1);margin-bottom:20px;display:flex;justify-content:space-between;align-items:center}
+        .header h1{color:#333}
+        .header a{color:#667eea;text-decoration:none}
+        .card{background:white;padding:30px;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.1)}
+        .card h2{color:#333;margin-bottom:15px}
+        .card p{color:#666;margin-bottom:20px}
+        .upload-area{border:2px dashed #ddd;padding:40px;text-align:center;border-radius:12px;cursor:pointer;transition:all 0.3s}
+        .upload-area:hover{border-color:#667eea;background:#f8f9ff}
+        .upload-area.dragover{border-color:#667eea;background:#f0f2ff}
+        .upload-area input[type="file"]{display:none}
+        .upload-area .icon{font-size:48px;margin-bottom:10px}
+        .upload-area .text{color:#666}
+        .upload-area .text strong{color:#333}
+        .btn{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;padding:12px 30px;border:none;border-radius:8px;cursor:pointer;font-size:16px;margin-top:15px}
+        .btn:hover{transform:translateY(-2px);box-shadow:0 5px 15px rgba(102,126,234,0.4)}
+        .btn:disabled{opacity:0.5;cursor:not-allowed}
+        .result{margin-top:20px;padding:15px;border-radius:8px;display:none}
+        .result.success{display:block;background:#d4edda;color:#155724;border:1px solid #c3e6cb}
+        .result.error{display:block;background:#f8d7da;color:#721c24;border:1px solid #f5c6cb}
+        .file-info{display:flex;align-items:center;gap:15px;padding:15px;background:#f8f9fa;border-radius:8px;margin-top:15px}
+        .file-info .name{color:#333;font-weight:500}
+        .file-info .size{color:#666;font-size:14px}
+        .loading{display:none;text-align:center;padding:20px}
+        .loading.show{display:block}
+        .spinner{border:4px solid #f3f3f3;border-top:4px solid #667eea;border-radius:50%;width:40px;height:40px;animation:spin 1s linear infinite;margin:0 auto}
+        @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+        .csv-format{background:#f8f9fa;padding:15px;border-radius:8px;margin:15px 0}
+        .csv-format code{background:white;padding:10px;display:block;border-radius:5px;font-size:13px;color:#333;white-space:pre-wrap}
+        .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:15px;margin-top:20px}
+        .stat-item{background:#f8f9fa;padding:15px;border-radius:8px;text-align:center}
+        .stat-item .number{font-size:24px;font-weight:bold;color:#333}
+        .stat-item .label{color:#666;font-size:14px}
+        .cert-list{max-height:300px;overflow-y:auto;margin-top:15px}
+        .cert-item{display:flex;justify-content:space-between;padding:8px 12px;border-bottom:1px solid #eee}
+        .cert-item:hover{background:#f8f9fa}
+        .cert-item .code{font-weight:bold;color:#667eea}
+        .cert-item .download{color:#28a745;text-decoration:none}
+        .cert-item .download:hover{text-decoration:underline}
+        .error-list{color:#dc3545;font-size:14px;margin-top:10px}
+        @media(max-width:768px){.header{flex-direction:column;gap:10px;text-align:center}}
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>📤 Bulk Certificate Upload</h1>
+        <a href="/dashboard">← Back to Dashboard</a>
+    </div>
+    
+    <div class="card">
+        <h2>Upload CSV File</h2>
+        <p>Upload a CSV file with student details to generate multiple certificates at once.</p>
+        
+        <div class="csv-format">
+            <strong>📋 CSV Format:</strong>
+            <code>student_name,student_email,achievement,organization_name,event_name
+John Doe,john@example.com,Best Performance,Tech Corp,Tech Summit 2026
+Jane Smith,jane@example.com,Excellence Award,Data Inc,Data Conference</code>
+        </div>
+        
+        <div class="upload-area" id="dropZone">
+            <div class="icon">📁</div>
+            <div class="text">
+                <strong>Click to upload</strong> or drag and drop<br>
+                <span style="font-size:14px;color:#999;">CSV files only</span>
+            </div>
+            <input type="file" id="fileInput" accept=".csv">
+        </div>
+        
+        <div id="fileInfo" class="file-info" style="display:none">
+            <span style="font-size:24px">📄</span>
+            <span class="name" id="fileName">file.csv</span>
+            <span class="size" id="fileSize">0 KB</span>
+            <button onclick="clearFile()" style="margin-left:auto;background:#dc3545;color:white;border:none;padding:5px 15px;border-radius:5px;cursor:pointer">Remove</button>
+        </div>
+        
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p style="margin-top:10px;color:#666;">Generating certificates...</p>
+        </div>
+        
+        <button class="btn" id="uploadBtn" disabled onclick="uploadFile()">📤 Generate Certificates</button>
+        
+        <div id="result" class="result"></div>
+        <div id="stats" class="stats-grid" style="display:none"></div>
+    </div>
+</div>
+
+<script>
+const token = localStorage.getItem('token');
+const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+if (!token) {
+    window.location.href = '/login';
+}
+
+let selectedFile = null;
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+dropZone.addEventListener('click', () => fileInput.click());
+
+dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+});
+
+dropZone.addEventListener('dragleave', () => {
+    dropZone.classList.remove('dragover');
+});
+
+dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+        handleFile(files[0]);
+    }
+});
+
+fileInput.addEventListener('change', (e) => {
+    if (e.target.files.length > 0) {
+        handleFile(e.target.files[0]);
+    }
+});
+
+function handleFile(file) {
+    if (!file.name.endsWith('.csv')) {
+        alert('Please upload a CSV file');
+        return;
+    }
+    selectedFile = file;
+    document.getElementById('fileName').textContent = file.name;
+    document.getElementById('fileSize').textContent = (file.size / 1024).toFixed(1) + ' KB';
+    document.getElementById('fileInfo').style.display = 'flex';
+    document.getElementById('uploadBtn').disabled = false;
+    document.getElementById('result').className = 'result';
+    document.getElementById('result').style.display = 'none';
+    document.getElementById('stats').style.display = 'none';
+}
+
+function clearFile() {
+    selectedFile = null;
+    fileInput.value = '';
+    document.getElementById('fileInfo').style.display = 'none';
+    document.getElementById('uploadBtn').disabled = true;
+    document.getElementById('result').className = 'result';
+    document.getElementById('result').style.display = 'none';
+    document.getElementById('stats').style.display = 'none';
+}
+
+async function uploadFile() {
+    if (!selectedFile) return;
+    
+    const uploadBtn = document.getElementById('uploadBtn');
+    const loading = document.getElementById('loading');
+    const result = document.getElementById('result');
+    const stats = document.getElementById('stats');
+    
+    uploadBtn.disabled = true;
+    loading.classList.add('show');
+    result.className = 'result';
+    result.style.display = 'none';
+    stats.style.display = 'none';
+    
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    formData.append('token', token);
+    
+    try {
+        const response = await fetch('/api/bulk-upload', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        loading.classList.remove('show');
+        
+        if (data.success) {
+            result.className = 'result success';
+            result.style.display = 'block';
+            result.innerHTML = `<strong>✅ ${data.message}</strong>`;
+            
+            // Show stats
+            stats.style.display = 'grid';
+            stats.innerHTML = `
+                <div class="stat-item">
+                    <div class="number">${data.certificates.length}</div>
+                    <div class="label">Certificates Generated</div>
+                </div>
+                <div class="stat-item">
+                    <div class="number">${data.total_rows || data.certificates.length}</div>
+                    <div class="label">Total Rows Processed</div>
+                </div>
+            `;
+            
+            // Show certificate list
+            let certList = '<div class="cert-list"><h4>📋 Generated Certificates:</h4>';
+            data.certificates.forEach(cert => {
+                certList += `
+                    <div class="cert-item">
+                        <span class="code">${cert.certificate_code}</span>
+                        <span>${cert.student_name}</span>
+                        <a href="/download/${cert.certificate_code}" class="download" target="_blank">📥 Download</a>
+                    </div>
+                `;
+            });
+            certList += '</div>';
+            result.innerHTML += certList;
+            
+            // Show errors if any
+            if (data.errors && data.errors.length > 0) {
+                result.innerHTML += `
+                    <div class="error-list">
+                        <strong>⚠️ Errors encountered:</strong>
+                        <ul>${data.errors.map(e => `<li>${e}</li>`).join('')}</ul>
+                    </div>
+                `;
+            }
+            
+            clearFile();
+        } else {
+            result.className = 'result error';
+            result.style.display = 'block';
+            result.innerHTML = `<strong>❌ Error:</strong> ${data.message}`;
+            
+            if (data.detail) {
+                result.innerHTML += `<br><span style="font-size:14px;">${data.detail}</span>`;
+            }
+        }
+    } catch (error) {
+        loading.classList.remove('show');
+        result.className = 'result error';
+        result.style.display = 'block';
+        result.innerHTML = `<strong>❌ Error:</strong> ${error.message}`;
+    } finally {
+        uploadBtn.disabled = false;
+    }
+}
+</script>
+</body>
+</html>
