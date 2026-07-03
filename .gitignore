@@ -38,3 +38,5 @@ static/
 
 # Logs
 *.log
+.vercel
+.env*
